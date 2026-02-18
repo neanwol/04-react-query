@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import css from './App.module.css';
@@ -7,8 +7,8 @@ import ErrorMessage from '../ErrorMessage/ErrorMessage';
 import Loader from '../Loader/Loader';
 import MovieGrid from '../MovieGrid/MovieGrid';
 import MovieModal from '../MovieModal/MovieModal';
-import Pagination from '../ReactPaginate/ReactPaginate';
-import { fetchTrendingMovies, searchMovies } from '../../services/movieService';
+import ReactPaginate from '../ReactPaginate/ReactPaginate';
+import { fetchMovies } from '../../services/movieService';
 import type { Movie } from '../../types/movie';
 
 interface AppQueryState {
@@ -25,19 +25,26 @@ function App() {
 
   const isSearching = queryState.query !== null;
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: isSearching 
-      ? ['searchMovies', queryState.query, queryState.page] 
-      : ['trendingMovies', queryState.page],
+  const { data, isLoading, isError, isSuccess } = useQuery({
+    queryKey: [isSearching ? 'search' : 'trending', queryState.query, queryState.page],
     queryFn: () =>
-      isSearching
-        ? searchMovies(queryState.query!, queryState.page)
-        : fetchTrendingMovies(queryState.page),
+      fetchMovies({
+        endpoint: isSearching ? 'search' : 'trending',
+        query: queryState.query ?? undefined,
+        page: queryState.page,
+      }),
+    enabled: !isSearching || (isSearching && queryState.query !== null),
+    placeholderData: (previousData) => previousData,
   });
 
   const movies = data?.results ?? [];
   const totalPages = data?.total_pages ?? 0;
-  const errorMessage = error ? 'Failed to load movies. Please try again.' : '';
+
+  useEffect(() => {
+    if (isSuccess && movies.length === 0 && isSearching) {
+      toast.error('No movies found for your search.');
+    }
+  }, [isSuccess, movies.length, isSearching]);
 
   const handleSearch = (query: string) => {
     if (query.trim() === '') {
@@ -51,7 +58,8 @@ function App() {
     });
   };
 
-  const handlePageChange = (newPage: number) => {
+  const handlePageChange = ({ selected }: { selected: number }) => {
+    const newPage = selected + 1;
     setQueryState((prev) => ({
       ...prev,
       page: newPage,
@@ -63,25 +71,21 @@ function App() {
     <div className={css.container}>
       <SearchBar onSubmit={handleSearch} />
       
-      {errorMessage && <ErrorMessage message={errorMessage} />}
+      {isError && <ErrorMessage message="Failed to load movies. Please try again." />}
       
       {isLoading && <Loader />}
       
-      {!isLoading && !errorMessage && movies.length > 0 && (
+      {!isLoading && !isError && movies.length > 0 && (
         <>
           <MovieGrid movies={movies} onSelect={setSelectedMovie} />
           {totalPages > 1 && (
-            <Pagination 
-              totalPages={totalPages} 
-              page={queryState.page} 
-              onPageChange={handlePageChange} 
+            <ReactPaginate
+              pageCount={totalPages}
+              onPageChange={handlePageChange}
+              forcePage={queryState.page - 1}
             />
           )}
         </>
-      )}
-      
-      {!isLoading && !errorMessage && movies.length === 0 && isSearching && (
-        <ErrorMessage message="No movies found for your search." />
       )}
       
       {selectedMovie && (

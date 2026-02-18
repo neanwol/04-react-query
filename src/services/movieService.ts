@@ -22,39 +22,41 @@ const axiosInstance = axios.create({
   },
 });
 
-export const searchMovies = async (
-  query: string,
-  page: number = 1
-): Promise<MoviesResponse> => {
-  try {
-    const { data } = await axiosInstance.get<MoviesResponse>('/search/movie', {
-      params: {
-        query,
-        page,
-        language: 'en-US',
-        include_adult: false,
-      },
-    });
-    return data;
-  } catch (error) {
-    console.error('Error searching movies:', error);
-    throw error;
-  }
-};
+interface FetchMoviesParams {
+  endpoint: 'trending' | 'search';
+  query?: string;
+  page?: number;
+}
 
-export const fetchTrendingMovies = async (
-  page: number = 1
-): Promise<MoviesResponse> => {
+export const fetchMovies = async ({
+  endpoint,
+  query,
+  page = 1,
+}: FetchMoviesParams): Promise<MoviesResponse> => {
   try {
-    const { data } = await axiosInstance.get<MoviesResponse>('/trending/movie/week', {
-      params: {
-        page,
-        language: 'en-US',
-      },
-    });
+    let url: string;
+    const params: Record<string, string | number | boolean> = {
+      page,
+      language: 'en-US',
+    };
+
+    if (endpoint === 'trending') {
+      url = '/trending/movie/week';
+    } else if (endpoint === 'search') {
+      if (!query) {
+        throw new Error('Search query is required for search endpoint');
+      }
+      url = '/search/movie';
+      params.query = query;
+      params.include_adult = false;
+    } else {
+      throw new Error(`Unknown endpoint: ${endpoint}`);
+    }
+
+    const { data } = await axiosInstance.get<MoviesResponse>(url, { params });
     return data;
   } catch (error) {
-    console.error('Error fetching trending movies:', error);
+    console.error(`Error fetching movies from ${endpoint}:`, error);
     throw error;
   }
 };
