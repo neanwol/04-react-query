@@ -23,17 +23,15 @@ function App() {
     page: 1,
   });
 
-  const isSearching = queryState.query !== null;
-
   const { data, isLoading, isError, isSuccess } = useQuery({
-    queryKey: [isSearching ? 'search' : 'trending', queryState.query, queryState.page],
+    queryKey: ['search', queryState.query, queryState.page],
     queryFn: () =>
       fetchMovies({
-        endpoint: isSearching ? 'search' : 'trending',
-        query: queryState.query ?? undefined,
+        endpoint: 'search',
+        query: queryState.query!,
         page: queryState.page,
       }),
-    enabled: !isSearching || (isSearching && queryState.query !== null),
+    enabled: Boolean(queryState.query),
     placeholderData: (previousData) => previousData,
   });
 
@@ -41,10 +39,10 @@ function App() {
   const totalPages = data?.total_pages ?? 0;
 
   useEffect(() => {
-    if (isSuccess && movies.length === 0 && isSearching) {
+    if (isSuccess && movies.length === 0 && queryState.query) {
       toast.error('No movies found for your search.');
     }
-  }, [isSuccess, movies.length, isSearching]);
+  }, [isSuccess, movies.length, queryState.query]);
 
   const handleSearch = (query: string) => {
     if (query.trim() === '') {
